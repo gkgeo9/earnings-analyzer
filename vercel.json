@@ -1,9 +1,5 @@
 {
-    "version": 2,
-    "builds": [
-      { "src": "api/*.js", "use": "@vercel/node" },
-      { "src": "package.json", "use": "@sveltejs/adapter-vercel" }
-    ],
+
     "routes": [
       { "src": "/api/analyze-earnings", "dest": "/api/analyze-earnings.js" },
       { "handle": "filesystem" },
