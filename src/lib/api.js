@@ -11,26 +11,24 @@ export async function analyzeEarningsCall(ticker, year, quarter, forceRefresh = 
       }
     }
     
-    // Try using the simple fetch approach first
+    // Try modern API route first
     try {
+      console.log('Trying modern API route...');
+      
+      // Use the modern Next.js App Router API route
       const response = await fetch('/api/analyze_earnings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticker, year, quarter }),
       });
       
-      // If response is ok, try to parse it
       if (response.ok) {
         const data = await response.json();
+        console.log('API route success:', data);
         
-        // Handle Vercel serverless response format if needed
-        const result = data.body ? 
-          (typeof data.body === 'string' ? JSON.parse(data.body) : data.body) : 
-          data;
-          
-        // Add metadata
+        // Add metadata if needed
         const analysisResult = {
-          ...result,
+          ...data,
           ticker,
           year, 
           quarter,
@@ -39,59 +37,58 @@ export async function analyzeEarningsCall(ticker, year, quarter, forceRefresh = 
         
         // Save to cache
         await saveToCache(ticker, year, quarter, analysisResult);
-        
         return analysisResult;
+      } else {
+        throw new Error(`API route failed with status ${response.status}`);
       }
-    } catch (fetchError) {
-      console.error('Fetch error:', fetchError);
-      // Continue to fallback
+    } catch (apiError) {
+      console.error('API route error:', apiError);
+      // Fall back to mock data
     }
     
-    // Fallback to the SvelteKit endpoint if serverless fails
-    console.log('Falling back to SvelteKit endpoint');
-    const fallbackResponse = await fetch('/api/analyze_earnings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticker, year, quarter }),
-    });
+    // If we got here, all API attempts failed, return mock data
+    console.warn('All API attempts failed, using client-side mock data');
     
-    const fallbackData = await fallbackResponse.json();
-    
-    // Add metadata
-    const fallbackResult = {
-      ...fallbackData,
-      ticker,
-      year,
-      quarter,
-      fromCache: false,
-      warning: "Using fallback endpoint"
-    };
-    
-    // Save to cache
-    await saveToCache(ticker, year, quarter, fallbackResult);
-    
-    return fallbackResult;
-  } catch (error) {
-    console.error('API error:', error);
-    
-    // Return mock data on error
     const mockResult = {
       executive_analysis: {
         overall_tone: "neutral",
         confidence_level: "moderate",
-        key_messages: ["This is mock data due to an API error"]
+        key_messages: ["This is mock data generated on the client"]
       },
       qa_analysis: {
-        notable_insights: ["Error occurred in API call"]
+        notable_insights: ["API endpoints failed"]
       },
-      red_flags: ["API error occurred"],
-      overall_assessment: "API error occurred. This is mock data.",
+      red_flags: ["Unable to connect to API"],
+      overall_assessment: "API endpoints failed. This is client-generated mock data.",
+      ticker,
+      year,
+      quarter,
+      fromCache: false,
+      warning: "Using client-side mock data (API endpoint failed)"
+    };
+    
+    return mockResult;
+  } catch (error) {
+    console.error('API error:', error);
+    
+    // Return mock data as last resort
+    const mockResult = {
+      executive_analysis: {
+        overall_tone: "neutral",
+        confidence_level: "moderate",
+        key_messages: ["This is mock data due to API failures"]
+      },
+      qa_analysis: {
+        notable_insights: ["All API endpoints failed"]
+      },
+      red_flags: ["API system errors occurred"],
+      overall_assessment: "All API endpoints failed. This is generated mock data.",
       ticker,
       year,
       quarter,
       fromCache: false,
       error: error.message,
-      warning: "Using mock data due to API error"
+      warning: "Using client-side mock data (all endpoints failed)"
     };
     
     return mockResult;

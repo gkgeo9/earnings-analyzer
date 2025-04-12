@@ -26,17 +26,16 @@ const mockAnalysis = {
 };
 
 /**
- * This is a SvelteKit API endpoint that serves as a development replacement
- * for the Vercel Python serverless function.
+ * SvelteKit API endpoint that works locally and also matches Vercel's API route pattern
  */
 export async function POST({ request }) {
   try {
     const { ticker, year, quarter } = await request.json();
     
-    console.log(`Dev mode: Analyzing ${ticker} Q${quarter} ${year}`);
+    console.log(`SvelteKit endpoint: Analyzing ${ticker} Q${quarter} ${year}`);
     
     // In development, return mock data with a slight delay to simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     // Return a modified version of the mock data that includes the requested information
     return json({
@@ -44,10 +43,13 @@ export async function POST({ request }) {
       ticker,
       year,
       quarter,
-      _devNote: "This is mock data for development. Deploy to Vercel for real analysis."
+      message: "This is mock data from the SvelteKit endpoint"
     });
   } catch (error) {
-    console.error('Error in dev API endpoint:', error);
-    return json({ error: 'Failed to analyze earnings call' }, { status: 500 });
+    console.error('Error in SvelteKit API endpoint:', error);
+    return json({ 
+      error: 'Failed to analyze earnings call',
+      message: error.message
+    }, { status: 500 });
   }
 }
