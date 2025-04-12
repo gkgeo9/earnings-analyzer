@@ -31,16 +31,8 @@
       // Convert ticker to uppercase
       const formattedTicker = ticker.toUpperCase();
       
-      // Check if we're in development mode and show a message
-      const isDev = window.location.hostname === 'localhost' || 
-                    window.location.hostname === '127.0.0.1';
-      
       // Analyze earnings call
       analysis = await analyzeEarningsCall(formattedTicker, year, quarter, forceRefresh);
-      
-      if (isDev && analysis._devNote) {
-        console.log('Development mode:', analysis._devNote);
-      }
       
       // Update available quarters
       handleTickerChange();
@@ -178,6 +170,70 @@
               {/each}
             </ul>
           {/if}
+          
+          {#if analysis.executive_analysis.strong_claims?.length > 0}
+            <h4>Strong Claims</h4>
+            <ul>
+              {#each analysis.executive_analysis.strong_claims as claim}
+                <li>{claim}</li>
+              {/each}
+            </ul>
+          {/if}
+          
+          {#if analysis.executive_analysis.hedging_language?.length > 0}
+            <h4>Hedging Language</h4>
+            <ul>
+              {#each analysis.executive_analysis.hedging_language as hedge}
+                <li>{hedge}</li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/if}
+      
+      {#if analysis.qa_analysis}
+        <div class="section">
+          <h3>Q&A Analysis</h3>
+          
+          {#if analysis.qa_analysis.notable_insights?.length > 0}
+            <h4>Notable Insights</h4>
+            <ul>
+              {#each analysis.qa_analysis.notable_insights as insight}
+                <li>{insight}</li>
+              {/each}
+            </ul>
+          {/if}
+          
+          {#if analysis.qa_analysis.most_evasive_questions?.length > 0}
+            <h4>Most Evasive Questions</h4>
+            {#each analysis.qa_analysis.most_evasive_questions as q}
+              <div class="evasive-question">
+                <p><strong>Question:</strong> "{q.question}"</p>
+                <p><strong>Asked by:</strong> {q.analyst}</p>
+                <p><strong>Directness:</strong> {q.directness}</p>
+                
+                {#if q.evasion_tactics?.length > 0}
+                  <p><strong>Evasion tactics:</strong></p>
+                  <ul>
+                    {#each q.evasion_tactics as tactic}
+                      <li>{tactic}</li>
+                    {/each}
+                  </ul>
+                {/if}
+              </div>
+            {/each}
+          {/if}
+        </div>
+      {/if}
+      
+      {#if analysis.forward_looking_statements?.length > 0}
+        <div class="section">
+          <h3>Forward-Looking Statements</h3>
+          <ul>
+            {#each analysis.forward_looking_statements as statement}
+              <li>{statement}</li>
+            {/each}
+          </ul>
         </div>
       {/if}
       
@@ -308,7 +364,7 @@
   .results-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
   }
   
   .badges {
@@ -322,6 +378,7 @@
     padding: 5px 10px;
     border-radius: 12px;
     font-size: 12px;
+    white-space: nowrap;
   }
   
   .badge.cached {
@@ -349,6 +406,22 @@
   .section h3 {
     margin-top: 0;
     color: #333;
+  }
+  
+  .section h4 {
+    margin: 15px 0 5px;
+    color: #555;
+  }
+  
+  .evasive-question {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 4px;
+  }
+  
+  .evasive-question p {
+    margin: 5px 0;
   }
   
   .export {

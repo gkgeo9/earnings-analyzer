@@ -18,28 +18,35 @@ export async function analyzeEarningsCall(ticker, year, quarter, forceRefresh = 
       }
     }
     
-    // Call the appropriate API endpoint based on environment
+    // Call the API endpoint
     const endpoint = '/api/analyze-earnings'; // Vercel serverless function path
     
+    console.log(`Fetching analysis for ${ticker} Q${quarter} ${year}`);
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ticker, year, quarter }),
     });
 
-    // Handle errors
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `Failed with status ${response.status}`);
-    }
-
     // Parse response
     const analysis = await response.json();
     
-    // Save successful analysis to cache
-    if (!analysis.error) {
-      await saveToCache(ticker, year, quarter, analysis);
+    // Check for errors in the response
+    if (!response.ok) {
+      if (analysis.mock_data) {
+        console.warn('API error, using mock data:', analysis.error);
+        return { ...analysis.mock_data, warning: analysis.error, fromCache: false };
+      }
+      throw new Error(analysis.error || `Failed with status ${response.status}`);
     }
+    
+    // Check for warnings
+    if (analysis.warning) {
+      console.warn('API warning:', analysis.warning);
+    }
+    
+    // Save successful analysis to cache
+    await saveToCache(ticker, year, quarter, analysis);
     
     // Return with fromCache flag set to false
     return { ...analysis, fromCache: false };
