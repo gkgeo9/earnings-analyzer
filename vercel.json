@@ -8,19 +8,5 @@
     },
     "routes": [
       { "src": "/api/analyze_earnings", "dest": "/api/analyze_earnings.py" }
-    ],
-    "env": {
-      "GOOGLE_API_KEY": "@google_api_key",
-      "API_NINJAS_KEY": "@api_ninjas_key"
-    },
-    "build": {
-      "env": {
-        "VITE_FIREBASE_API_KEY": "@firebase_api_key",
-        "VITE_FIREBASE_AUTH_DOMAIN": "@firebase_auth_domain",
-        "VITE_FIREBASE_PROJECT_ID": "@firebase_project_id",
-        "VITE_FIREBASE_STORAGE_BUCKET": "@firebase_storage_bucket",
-        "VITE_FIREBASE_MESSAGING_SENDER_ID": "@firebase_messaging_sender_id",
-        "VITE_FIREBASE_APP_ID": "@firebase_app_id"
-      }
-    }
+    ]
   }
