@@ -21,9 +21,9 @@ export async function getFromCache(ticker, year, quarter) {
   const cacheKey = generateCacheKey(ticker, year, quarter);
   
   try {
-    if (isDev) {
-      // In development, use localStorage
-      console.log('Using dev cache');
+    if (isDev || !db) {
+      // In development or if Firebase is not initialized, use localStorage
+      console.log('Using local storage cache');
       const devCache = localStorage.getItem(DEV_CACHE_KEY);
       if (devCache) {
         const cache = JSON.parse(devCache);
@@ -34,18 +34,18 @@ export async function getFromCache(ticker, year, quarter) {
           const expirationTime = 30 * 24 * 60 * 60 * 1000; // 30 days
           
           if (Date.now() - cacheTime.getTime() > expirationTime) {
-            console.log('Dev cache expired');
+            console.log('Cache expired');
             return null;
           }
           
-          console.log('Dev cache hit');
+          console.log('Cache hit');
           return data.analysis;
         }
       }
-      console.log('Dev cache miss');
+      console.log('Cache miss');
       return null;
     } else {
-      // In production, use Firestore
+      // In production with Firebase initialized, use Firestore
       const docRef = doc(db, COLLECTION, cacheKey);
       const docSnap = await getDoc(docRef);
       
@@ -78,8 +78,8 @@ export async function saveToCache(ticker, year, quarter, analysis) {
   const cacheKey = generateCacheKey(ticker, year, quarter);
   
   try {
-    if (isDev) {
-      // In development, use localStorage
+    if (isDev || !db) {
+      // In development or if Firebase is not initialized, use localStorage
       let devCache = localStorage.getItem(DEV_CACHE_KEY);
       let cache = devCache ? JSON.parse(devCache) : {};
       
@@ -92,9 +92,9 @@ export async function saveToCache(ticker, year, quarter, analysis) {
       };
       
       localStorage.setItem(DEV_CACHE_KEY, JSON.stringify(cache));
-      console.log('Saved to dev cache');
+      console.log('Saved to local storage cache');
     } else {
-      // In production, use Firestore
+      // In production with Firebase initialized, use Firestore
       const docRef = doc(db, COLLECTION, cacheKey);
       
       await setDoc(docRef, {
@@ -105,7 +105,7 @@ export async function saveToCache(ticker, year, quarter, analysis) {
         cachedAt: new Date()
       });
       
-      console.log('Saved to cache');
+      console.log('Saved to Firestore cache');
     }
   } catch (error) {
     console.error('Error saving to cache:', error);
@@ -115,8 +115,8 @@ export async function saveToCache(ticker, year, quarter, analysis) {
 // Get all available analyses for a ticker
 export async function getAvailableAnalyses(ticker) {
   try {
-    if (isDev) {
-      // In development, use localStorage
+    if (isDev || !db) {
+      // In development or if Firebase is not initialized, use localStorage
       const devCache = localStorage.getItem(DEV_CACHE_KEY);
       if (!devCache) return [];
       
@@ -138,7 +138,7 @@ export async function getAvailableAnalyses(ticker) {
       
       return results;
     } else {
-      // In production, use Firestore
+      // In production with Firebase initialized, use Firestore
       const analysesRef = collection(db, COLLECTION);
       const q = query(analysesRef, where('ticker', '==', ticker.toUpperCase()));
       const querySnapshot = await getDocs(q);

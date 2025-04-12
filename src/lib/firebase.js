@@ -20,12 +20,10 @@ try {
   };
 
   // Initialize Firebase if config is available
-  if (firebaseConfig.apiKey && !isDev) {
+  if (firebaseConfig.apiKey) {
     const app = initializeApp(firebaseConfig);
     db = getFirestore(app);
     console.log('Firebase initialized');
-  } else if (isDev) {
-    console.log('Development mode: Firebase not initialized');
   } else {
     console.warn('Firebase config missing');
   }

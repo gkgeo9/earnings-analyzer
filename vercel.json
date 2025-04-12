@@ -1,11 +1,12 @@
 {
     "version": 2,
-    "functions": {
-      "api/*.js": {
-        "memory": 1024
-      }
-    },
+    "builds": [
+      { "src": "api/*.js", "use": "@vercel/node" },
+      { "src": "package.json", "use": "@sveltejs/adapter-vercel" }
+    ],
     "routes": [
-      { "src": "/api/analyze_earnings", "dest": "/api/analyze-earnings.js" }
+      { "src": "/api/analyze-earnings", "dest": "/api/analyze-earnings.js" },
+      { "handle": "filesystem" },
+      { "src": "/(.*)", "dest": "/index.html" }
     ]
   }

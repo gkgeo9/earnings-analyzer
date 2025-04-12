@@ -1,4 +1,4 @@
-// JavaScript serverless function for Vercel
+// Vercel serverless function for analyzing earnings calls
 
 // Mock data for testing or when APIs are unavailable
 const MOCK_ANALYSIS = {
@@ -25,22 +25,19 @@ const MOCK_ANALYSIS = {
     "overall_assessment": "Overall strong performance with some challenges on the horizon."
   };
   
-  /**
-   * Vercel serverless function handler
-   */
-  export default async function handler(request, response) {
-    // Only accept POST requests
-    if (request.method !== 'POST') {
-      return response.status(405).json({ error: 'Method not allowed. Use POST' });
+  export default function handler(req, res) {
+    // Only allow POST requests
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method not allowed. Use POST.' });
     }
-    
+  
     try {
       // Get parameters from request body
-      const { ticker, year, quarter } = request.body;
+      const { ticker, year, quarter } = req.body;
       
       // Validate parameters
       if (!ticker || !year || !quarter) {
-        return response.status(400).json({ 
+        return res.status(400).json({ 
           error: 'Missing required parameters: ticker, year, quarter' 
         });
       }
@@ -52,15 +49,15 @@ const MOCK_ANALYSIS = {
         ticker,
         year,
         quarter,
-        message: "This is mock data from the JavaScript endpoint"
+        message: "This is mock data from the Vercel serverless function"
       };
       
       // Return the analysis
-      return response.status(200).json(result);
+      return res.status(200).json(result);
     } catch (error) {
       console.error('Server error:', error);
       
-      return response.status(500).json({
+      return res.status(500).json({
         error: `Server error: ${error.message}`,
         mock_data: MOCK_ANALYSIS
       });

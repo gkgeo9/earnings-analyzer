@@ -26,13 +26,13 @@ const mockAnalysis = {
 };
 
 /**
- * SvelteKit API endpoint that works locally and also matches Vercel's API route pattern
+ * SvelteKit API endpoint for development environment
  */
 export async function POST({ request }) {
   try {
     const { ticker, year, quarter } = await request.json();
     
-    console.log(`SvelteKit endpoint: Analyzing ${ticker} Q${quarter} ${year}`);
+    console.log(`Dev mode: Analyzing ${ticker} Q${quarter} ${year}`);
     
     // In development, return mock data with a slight delay to simulate API call
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -43,10 +43,10 @@ export async function POST({ request }) {
       ticker,
       year,
       quarter,
-      message: "This is mock data from the SvelteKit endpoint"
+      message: "This is mock data from the SvelteKit development endpoint"
     });
   } catch (error) {
-    console.error('Error in SvelteKit API endpoint:', error);
+    console.error('Error in development endpoint:', error);
     return json({ 
       error: 'Failed to analyze earnings call',
       message: error.message

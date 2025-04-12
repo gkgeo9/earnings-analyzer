@@ -1,6 +1,13 @@
 import { getFromCache, saveToCache, getAvailableAnalyses } from './cacheService';
 
-// Analyze earnings call (with caching)
+/**
+ * Analyze an earnings call
+ * @param {string} ticker - Stock ticker symbol
+ * @param {number} year - Year of earnings call
+ * @param {number} quarter - Quarter of earnings call (1-4)
+ * @param {boolean} forceRefresh - Whether to bypass cache and get fresh data
+ * @returns {Promise<Object>} - Analysis results
+ */
 export async function analyzeEarningsCall(ticker, year, quarter, forceRefresh = false) {
   try {
     // Check cache first (unless forcing refresh)
@@ -11,100 +18,50 @@ export async function analyzeEarningsCall(ticker, year, quarter, forceRefresh = 
       }
     }
     
-    // Try modern API route first
-    try {
-      console.log('Trying modern API route...');
-      
-      // Use the modern Next.js App Router API route
-      const response = await fetch('/api/analyze_earnings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker, year, quarter }),
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('API route success:', data);
-        
-        // Add metadata if needed
-        const analysisResult = {
-          ...data,
-          ticker,
-          year, 
-          quarter,
-          fromCache: false
-        };
-        
-        // Save to cache
-        await saveToCache(ticker, year, quarter, analysisResult);
-        return analysisResult;
-      } else {
-        throw new Error(`API route failed with status ${response.status}`);
-      }
-    } catch (apiError) {
-      console.error('API route error:', apiError);
-      // Fall back to mock data
+    // Call the appropriate API endpoint based on environment
+    const endpoint = '/api/analyze-earnings'; // Vercel serverless function path
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker, year, quarter }),
+    });
+
+    // Handle errors
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `Failed with status ${response.status}`);
+    }
+
+    // Parse response
+    const analysis = await response.json();
+    
+    // Save successful analysis to cache
+    if (!analysis.error) {
+      await saveToCache(ticker, year, quarter, analysis);
     }
     
-    // If we got here, all API attempts failed, return mock data
-    console.warn('All API attempts failed, using client-side mock data');
-    
-    const mockResult = {
-      executive_analysis: {
-        overall_tone: "neutral",
-        confidence_level: "moderate",
-        key_messages: ["This is mock data generated on the client"]
-      },
-      qa_analysis: {
-        notable_insights: ["API endpoints failed"]
-      },
-      red_flags: ["Unable to connect to API"],
-      overall_assessment: "API endpoints failed. This is client-generated mock data.",
-      ticker,
-      year,
-      quarter,
-      fromCache: false,
-      warning: "Using client-side mock data (API endpoint failed)"
-    };
-    
-    return mockResult;
+    // Return with fromCache flag set to false
+    return { ...analysis, fromCache: false };
   } catch (error) {
     console.error('API error:', error);
-    
-    // Return mock data as last resort
-    const mockResult = {
-      executive_analysis: {
-        overall_tone: "neutral",
-        confidence_level: "moderate",
-        key_messages: ["This is mock data due to API failures"]
-      },
-      qa_analysis: {
-        notable_insights: ["All API endpoints failed"]
-      },
-      red_flags: ["API system errors occurred"],
-      overall_assessment: "All API endpoints failed. This is generated mock data.",
-      ticker,
-      year,
-      quarter,
-      fromCache: false,
-      error: error.message,
-      warning: "Using client-side mock data (all endpoints failed)"
-    };
-    
-    return mockResult;
+    throw error;
   }
 }
 
-// Get available quarters for a ticker
+/**
+ * Get available quarters for a given ticker
+ * @param {string} ticker - Stock ticker symbol
+ * @returns {Promise<Array>} - Array of years with available quarters
+ */
 export async function getAvailableQuarters(ticker) {
-  if (!ticker || ticker.length < 2) return [];
-  
   try {
-    // Get analyses from cache
+    // Get available analyses from cache
     const analyses = await getAvailableAnalyses(ticker);
     
-    // Convert to years with quarters
+    // Transform into years with quarters
     const yearsMap = new Map();
+    
     analyses.forEach(analysis => {
       if (!yearsMap.has(analysis.year)) {
         yearsMap.set(analysis.year, new Set());
@@ -112,7 +69,7 @@ export async function getAvailableQuarters(ticker) {
       yearsMap.get(analysis.year).add(analysis.quarter);
     });
     
-    // Format result
+    // Convert to array format
     const result = [];
     yearsMap.forEach((quarters, year) => {
       result.push({
@@ -121,12 +78,26 @@ export async function getAvailableQuarters(ticker) {
       });
     });
     
-    // Sort by year (newest first)
+    // Sort by year (descending)
     result.sort((a, b) => b.year - a.year);
+    
+    // If no cached data, return some defaults
+    if (result.length === 0) {
+      const currentYear = new Date().getFullYear();
+      return [
+        { year: currentYear, quarters: [1, 2] },
+        { year: currentYear - 1, quarters: [1, 2, 3, 4] },
+      ];
+    }
     
     return result;
   } catch (error) {
-    console.error('Error fetching quarters:', error);
-    return [];
+    console.error('Error fetching available quarters:', error);
+    // Fallback to defaults
+    const currentYear = new Date().getFullYear();
+    return [
+      { year: currentYear, quarters: [1, 2] },
+      { year: currentYear - 1, quarters: [1, 2, 3, 4] },
+    ];
   }
 }
