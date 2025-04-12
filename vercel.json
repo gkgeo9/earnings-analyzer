@@ -1,12 +1,11 @@
 {
     "version": 2,
     "functions": {
-      "api/analyze_earnings.py": {
-        "maxDuration": 60,
+      "api/*.js": {
         "memory": 1024
       }
     },
     "routes": [
-      { "src": "/api/analyze_earnings", "dest": "/api/analyze_earnings.py" }
+      { "src": "/api/analyze_earnings", "dest": "/api/analyze-earnings.js" }
     ]
   }
