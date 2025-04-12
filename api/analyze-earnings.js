@@ -114,7 +114,7 @@ async function analyzeTranscript(ticker, transcriptData) {
   
   // Generate content with Gemini
   const response = await genAI.models.generateContent({
-    model: "gemini-pro",
+    model: "gemini-2.0-flash",
     contents: prompt,
   });
   
