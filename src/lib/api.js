@@ -18,19 +18,56 @@ export async function analyzeEarningsCall(ticker, year, quarter, forceRefresh = 
       body: JSON.stringify({ ticker, year, quarter }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Analysis failed');
+    let result;
+    try {
+      result = await response.json();
+    } catch (e) {
+      console.error('Failed to parse response:', e);
+      throw new Error('Failed to parse server response');
     }
-
-    const analysis = await response.json();
+    
+    // Check if the response is wrapped in a body property (Vercel format)
+    if (response.ok && result.body && !result.error) {
+      try {
+        const bodyContent = typeof result.body === 'string' 
+          ? JSON.parse(result.body) 
+          : result.body;
+          
+        result = bodyContent;
+      } catch (e) {
+        console.error('Failed to parse response body:', e);
+      }
+    }
+    
+    // Check for errors
+    if (!response.ok || result.error) {
+      const errorMessage = result.error || `Request failed with status ${response.status}`;
+      
+      // If there's mock data available in the error response, use it
+      if (result.mock_data) {
+        console.warn('Using mock data due to API error:', errorMessage);
+        result = { 
+          ...result.mock_data, 
+          warning: errorMessage,
+          fromCache: false 
+        };
+      } else {
+        throw new Error(errorMessage);
+      }
+    }
+    
+    // Check for warnings
+    if (result.warning) {
+      console.warn('API warning:', result.warning);
+    }
+    
+    // Add fromCache flag
+    const finalResult = { ...result, fromCache: false };
     
     // Save successful analysis to cache
-    if (!analysis.error) {
-      await saveToCache(ticker, year, quarter, analysis);
-    }
+    await saveToCache(ticker, year, quarter, finalResult);
     
-    return { ...analysis, fromCache: false };
+    return finalResult;
   } catch (error) {
     console.error('API error:', error);
     throw error;

@@ -142,11 +142,19 @@
       <div class="results-header">
         <h2>{ticker} Q{quarter} {year} Analysis</h2>
         
-        {#if analysis.fromCache !== undefined}
-          <div class="cache-badge {analysis.fromCache ? 'cached' : 'fresh'}">
-            {analysis.fromCache ? '🔄 From cache' : '🔍 Fresh analysis'}
-          </div>
-        {/if}
+        <div class="badges">
+          {#if analysis.fromCache !== undefined}
+            <div class="badge {analysis.fromCache ? 'cached' : 'fresh'}">
+              {analysis.fromCache ? '🔄 From cache' : '🔍 Fresh analysis'}
+            </div>
+          {/if}
+          
+          {#if analysis.warning}
+            <div class="badge warning">
+              ⚠️ {analysis.warning}
+            </div>
+          {/if}
+        </div>
       </div>
       
       <div class="overall">
@@ -303,20 +311,32 @@
     align-items: center;
   }
   
-  .cache-badge {
+  .badges {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-end;
+  }
+  
+  .badge {
     padding: 5px 10px;
     border-radius: 12px;
     font-size: 12px;
   }
   
-  .cache-badge.cached {
+  .badge.cached {
     background: #e6f7ff;
     color: #0070f3;
   }
   
-  .cache-badge.fresh {
+  .badge.fresh {
     background: #f0fff4;
     color: #38a169;
+  }
+  
+  .badge.warning {
+    background: #fff5e6;
+    color: #ed8936;
   }
   
   .section {
