@@ -226,6 +226,74 @@
         </div>
       {/if}
       
+      <!-- NEW SECTION: Financial Metrics -->
+      {#if analysis.financial_metrics}
+        <div class="section">
+          <h3>Financial Metrics</h3>
+          
+          {#if analysis.financial_metrics.highlighted_metrics?.length > 0}
+            <h4>Highlighted Metrics</h4>
+            <ul>
+              {#each analysis.financial_metrics.highlighted_metrics as metric}
+                <li>{metric}</li>
+              {/each}
+            </ul>
+          {/if}
+          
+          {#if analysis.financial_metrics.downplayed_metrics?.length > 0}
+            <h4>Downplayed Metrics</h4>
+            <ul>
+              {#each analysis.financial_metrics.downplayed_metrics as metric}
+                <li>{metric}</li>
+              {/each}
+            </ul>
+          {/if}
+          
+          {#if analysis.financial_metrics.new_metrics?.length > 0}
+            <h4>New Metrics</h4>
+            <ul>
+              {#each analysis.financial_metrics.new_metrics as metric}
+                <li>{metric}</li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/if}
+      
+      <!-- NEW SECTION: Competitive Positioning -->
+      {#if analysis.competitive_positioning}
+        <div class="section">
+          <h3>Competitive Positioning</h3>
+          
+          {#if analysis.competitive_positioning.mentioned_competitors?.length > 0}
+            <h4>Mentioned Competitors</h4>
+            <ul>
+              {#each analysis.competitive_positioning.mentioned_competitors as competitor}
+                <li>{competitor}</li>
+              {/each}
+            </ul>
+          {/if}
+          
+          {#if analysis.competitive_positioning.market_dynamics?.length > 0}
+            <h4>Market Dynamics</h4>
+            <ul>
+              {#each analysis.competitive_positioning.market_dynamics as dynamic}
+                <li>{dynamic}</li>
+              {/each}
+            </ul>
+          {/if}
+          
+          {#if analysis.competitive_positioning.competitive_advantages?.length > 0}
+            <h4>Competitive Advantages</h4>
+            <ul>
+              {#each analysis.competitive_positioning.competitive_advantages as advantage}
+                <li>{advantage}</li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
+      {/if}
+      
       {#if analysis.forward_looking_statements?.length > 0}
         <div class="section">
           <h3>Forward-Looking Statements</h3>
@@ -243,6 +311,18 @@
           <ul>
             {#each analysis.red_flags as flag}
               <li>{flag}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+      
+      <!-- NEW SECTION: Change Analysis -->
+      {#if analysis.change_analysis?.length > 0}
+        <div class="section">
+          <h3>Change Analysis</h3>
+          <ul>
+            {#each analysis.change_analysis as change}
+              <li>{change}</li>
             {/each}
           </ul>
         </div>
@@ -428,4 +508,4 @@
     text-align: right;
     margin-top: 20px;
   }
-</style>
+  </style>
