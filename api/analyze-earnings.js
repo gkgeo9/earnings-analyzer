@@ -1,4 +1,4 @@
-// Vercel serverless function for analyzing earnings calls
+// Updated Vercel serverless function for analyzing earnings calls
 import { GoogleGenAI } from "@google/genai";
 
 // Mock data as fallback
@@ -58,17 +58,23 @@ async function getTranscript(ticker, year, quarter) {
     quarter: quarter
   });
   
-  const response = await fetch(`${url}?${params}`, {
-    headers: {
-      'X-Api-Key': API_NINJAS_KEY
+  try {
+    const response = await fetch(`${url}?${params}`, {
+      headers: {
+        'X-Api-Key': API_NINJAS_KEY
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Ninjas error: ${response.status} - ${errorText}`);
     }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`API Ninjas error: ${response.status} - ${await response.text()}`);
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching transcript:', error);
+    throw error;
   }
-  
-  return await response.json();
 }
 
 /**
@@ -77,6 +83,7 @@ async function getTranscript(ticker, year, quarter) {
  * @param {Object} transcriptData - Transcript data from API Ninjas
  * @returns {Promise<Object>} - Analysis results
  */
+// Updated analyzeTranscript function with better JSON handling
 async function analyzeTranscript(ticker, transcriptData) {
   const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
   
@@ -87,7 +94,7 @@ async function analyzeTranscript(ticker, transcriptData) {
   // Initialize the Google GenAI client
   const genAI = new GoogleGenAI({ apiKey: GOOGLE_API_KEY });
   
-  // Create analysis prompt
+  // Create analysis prompt with emphasis on returning ONLY valid JSON
   const prompt = `You are a senior financial analyst with extensive experience analyzing ${ticker}'s industry and competitors. You're examining ${ticker}'s earnings call transcript from ${transcriptData.date || 'recent date'}.
 
 Analyze this transcript thoroughly and provide detailed, specific insights based on actual content from the transcript, not generic observations. Focus on:
@@ -140,14 +147,12 @@ Provide your analysis in this exact JSON format:
   "overall_assessment": "Detailed assessment including strongest and weakest points backed by SPECIFIC evidence"
 }
 
-IMPORTANT REQUIREMENTS:
-1. Return ONLY valid JSON with NO explanation or preamble
-2. ALL insights MUST include EXACT QUOTES from the transcript, not paraphrasing
-3. Use SPECIFIC numbers, percentages, and metrics wherever possible
-4. For "directness" rating, use ONLY the 5 exact options provided
-5. ALL analysis must be directly supported by content in the transcript
-
-Ensure your analysis captures substantive insights that would be valuable to investors, not surface-level observations.`;
+CRITICALLY IMPORTANT:
+1. Your entire response must be ONLY this JSON object with NO other text before or after
+2. Do not include any explanation, introduction, or any text outside the JSON structure
+3. Do not wrap the JSON in markdown code blocks or any other formatting
+4. Ensure the JSON is properly formatted with no syntax errors
+5. Do not include any non-JSON text in your response whatsoever`;
   
   // Generate content with Gemini
   const response = await genAI.models.generateContent({
@@ -155,20 +160,61 @@ Ensure your analysis captures substantive insights that would be valuable to inv
     contents: prompt,
   });
   
+  // Get the raw text response
   const text = response.text;
   
-  // Extract JSON from response
+  // Try multiple approaches to extract valid JSON
   try {
-    // First try direct JSON parsing
-    return JSON.parse(text);
-  } catch (e) {
-    // If there's anything surrounding the JSON, extract it
-    const jsonMatch = text.match(/({[\s\S]*})/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1]);
-    } else {
-      throw new Error('Could not extract valid JSON from the Gemini response');
+    // First approach: Direct parsing
+    try {
+      return JSON.parse(text);
+    } catch (directError) {
+      console.log("Direct parsing failed, trying alternative methods");
     }
+    
+    // Second approach: Extract JSON using regex pattern
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const jsonStr = jsonMatch[0];
+        return JSON.parse(jsonStr);
+      } catch (regexError) {
+        console.log("Regex extraction failed:", regexError.message);
+      }
+    }
+    
+    // Third approach: Handle markdown code blocks
+    const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (markdownMatch) {
+      try {
+        const jsonStr = markdownMatch[1].trim();
+        return JSON.parse(jsonStr);
+      } catch (markdownError) {
+        console.log("Markdown extraction failed:", markdownError.message);
+      }
+    }
+    
+    // Fourth approach: Try to fix common JSON issues
+    try {
+      // Replace single quotes with double quotes
+      const fixedText = text.replace(/'/g, '"')
+        // Remove any non-JSON text before the first { and after the last }
+        .replace(/^[^{]*/, '')
+        .replace(/[^}]*$/, '');
+      
+      if (fixedText.trim().startsWith('{') && fixedText.trim().endsWith('}')) {
+        return JSON.parse(fixedText);
+      }
+    } catch (fixError) {
+      console.log("JSON fixing failed:", fixError.message);
+    }
+    
+    // Log the failure and fall back to mock data
+    console.error("All JSON extraction methods failed. Response received:", text.substring(0, 200) + "...");
+    throw new Error('Could not extract valid JSON from the Gemini response');
+  } catch (error) {
+    console.error("JSON parsing completely failed:", error);
+    throw error;
   }
 }
 
@@ -198,14 +244,27 @@ export default async function handler(req, res) {
       
       // Analyze transcript with Google Gemini
       console.log('Analyzing transcript with Gemini');
-      result = await analyzeTranscript(ticker, transcriptData);
-      
-      // Add metadata
-      result.ticker = ticker;
-      result.year = year;
-      result.quarter = quarter;
-      result.date = transcriptData.date;
-      
+      try {
+        result = await analyzeTranscript(ticker, transcriptData);
+        
+        // Add metadata
+        result.ticker = ticker;
+        result.year = year;
+        result.quarter = quarter;
+        result.date = transcriptData.date;
+      } catch (analysisError) {
+        console.error('Gemini analysis error:', analysisError);
+        
+        // Return mock data with warning if analysis fails
+        result = {
+          ...MOCK_ANALYSIS,
+          ticker,
+          year,
+          quarter,
+          date: transcriptData.date,
+          warning: `Analysis error: ${analysisError.message}. Using mock data.`
+        };
+      }
     } catch (apiError) {
       console.error('API error:', apiError);
       
@@ -226,7 +285,12 @@ export default async function handler(req, res) {
     
     return res.status(500).json({
       error: `Server error: ${error.message}`,
-      mock_data: MOCK_ANALYSIS
+      mock_data: {
+        ...MOCK_ANALYSIS,
+        ticker: req.body?.ticker || 'UNKNOWN',
+        year: req.body?.year || new Date().getFullYear(),
+        quarter: req.body?.quarter || 1
+      }
     });
   }
 }
