@@ -1,8 +1,12 @@
 {
-
-    "routes": [
-      { "src": "/api/analyze-earnings", "dest": "/api/analyze-earnings.js" },
-      { "handle": "filesystem" },
-      { "src": "/(.*)", "dest": "/index.html" }
-    ]
-  }
+  "functions": {
+    "api/analyze-earnings.js": {
+      "maxDuration": 60
+    }
+  },
+  "routes": [
+    { "src": "/api/analyze-earnings", "dest": "/api/analyze-earnings.js" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
