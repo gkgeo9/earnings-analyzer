@@ -83,6 +83,7 @@ async function getTranscript(ticker, year, quarter) {
  * @param {Object} transcriptData - Transcript data from API Ninjas
  * @returns {Promise<Object>} - Analysis results
  */
+// Updated analyzeTranscript function with better JSON handling
 async function analyzeTranscript(ticker, transcriptData) {
   const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
   
@@ -93,7 +94,7 @@ async function analyzeTranscript(ticker, transcriptData) {
   // Initialize the Google GenAI client
   const genAI = new GoogleGenAI({ apiKey: GOOGLE_API_KEY });
   
-  // Create analysis prompt with emphasis on returning valid JSON
+  // Create analysis prompt with emphasis on returning ONLY valid JSON
   const prompt = `You are a senior financial analyst with extensive experience analyzing ${ticker}'s industry and competitors. You're examining ${ticker}'s earnings call transcript from ${transcriptData.date || 'recent date'}.
 
 Analyze this transcript thoroughly and provide detailed, specific insights based on actual content from the transcript, not generic observations. Focus on:
@@ -109,7 +110,7 @@ Analyze this transcript thoroughly and provide detailed, specific insights based
 Here's the transcript:
 ${JSON.stringify(transcriptData)}
 
-I need your response to be a valid, well-formed JSON object with the following structure:
+Provide your analysis in this exact JSON format:
 
 {
   "executive_analysis": {
@@ -146,104 +147,107 @@ I need your response to be a valid, well-formed JSON object with the following s
   "overall_assessment": "Detailed assessment including strongest and weakest points backed by SPECIFIC evidence"
 }
 
-IMPORTANTLY:
+CRITICALLY IMPORTANT:
 1. Your entire response must be ONLY this JSON object with NO other text before or after
-2. Every JSON field must be properly formatted with quotation marks around keys and string values
-3. All arrays must use square brackets with comma-separated items
-4. Ensure all quotes, commas, and braces are properly matched
-5. The JSON must be syntactically valid with no errors`;
+2. Do not include any explanation, introduction, or any text outside the JSON structure
+3. Do not wrap the JSON in markdown code blocks or any other formatting
+4. Ensure the JSON is properly formatted with no syntax errors
+5. Do not include any non-JSON text in your response whatsoever`;
   
-  try {
-    // Generate content with Gemini
-    // Using systemInstruction to emphasize JSON validity 
-    const model = genAI.models.get("gemini-2.5-flash-preview-04-17");
-    const response = await model.chat.sendMessage(prompt, {
-      systemInstruction: "You are a financial analysis AI that outputs only valid, properly formatted JSON. All responses must be valid JSON objects with no other text or formatting."
-    });
-    
-    // Get the raw text response
-    const text = response.text();
-    
-    console.log("Raw Gemini response (first 100 chars):", text.substring(0, 100));
-    
-    // Try multiple approaches to extract valid JSON
-    try {
-      // First approach: Check for markdown code blocks (most common issue)
-      const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (markdownMatch) {
-        try {
-          console.log("Found markdown code block, attempting to parse JSON from inside it");
-          const jsonStr = markdownMatch[1].trim();
-          return JSON.parse(jsonStr);
-        } catch (markdownError) {
-          console.log("Markdown extraction failed:", markdownError.message);
-        }
-      }
-      
-      // Second approach: Direct parsing (if no markdown wrapper)
+  // Generate content with Gemini
+  const response = await genAI.models.generateContent({
+    model: "gemini-2.5-flash-preview-04-17",
+    contents: prompt,
+  });
+  
+  // Get the raw text response
+  // After getting the response from the model:
+  const text = response.text();
+
+  // Log the first bit of the response for debugging
+  console.log("Raw response (first 100 chars):", text.substring(0, 100));
+
+  // Try to extract valid JSON from the response
+  function extractJsonFromText(text) {
+    // Case 1: Check for markdown JSON code blocks
+    const markdownJsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (markdownJsonMatch) {
       try {
-        return JSON.parse(text);
-      } catch (directError) {
-        console.log("Direct parsing failed, trying alternative methods:", directError.message);
+        console.log("Found markdown JSON code block");
+        const jsonStr = markdownJsonMatch[1].trim();
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        console.log("Failed to parse JSON from markdown block:", e.message);
       }
-      
-      // Third approach: Extract JSON using regex pattern
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          console.log("Attempting to extract JSON with regex");
-          const jsonStr = jsonMatch[0];
-          return JSON.parse(jsonStr);
-        } catch (regexError) {
-          console.log("Regex extraction failed:", regexError.message);
-        }
-      }
-      
-      // Fourth approach: Try to fix common JSON issues
-      try {
-        // Replace single quotes with double quotes
-        let fixedText = text.replace(/'/g, '"')
-          // Fix common issues with trailing commas
-          .replace(/,\s*}/g, '}')
-          .replace(/,\s*]/g, ']')
-          // Remove any non-JSON text before the first { and after the last }
-          .replace(/^[^{]*/, '')
-          .replace(/[^}]*$/, '');
-        
-        if (fixedText.trim().startsWith('{') && fixedText.trim().endsWith('}')) {
-          return JSON.parse(fixedText);
-        }
-      } catch (fixError) {
-        console.log("JSON fixing failed:", fixError.message);
-      }
-      
-      // Fifth approach: More aggressive cleaning
-      try {
-        // Find content between first { and last }
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          const potentialJson = match[0];
-          // Try to parse with more lenient JSON parser or fix common issues
-          const cleanJson = potentialJson
-            .replace(/(\w+):/g, '"$1":')  // Add quotes to keys
-            .replace(/:\s*'([^']*)'/g, ': "$1"')  // Replace single quotes with double quotes
-            .replace(/,(\s*[\]}])/g, '$1');  // Remove trailing commas
-            
-          return JSON.parse(cleanJson);
-        }
-      } catch (cleanError) {
-        console.log("Aggressive JSON cleaning failed:", cleanError.message);
-      }
-      
-      // Log the failure and fall back to mock data
-      console.error("All JSON extraction methods failed. Response received:", text.substring(0, 500) + "...");
-      throw new Error('Could not extract valid JSON from the Gemini response');
-    } catch (error) {
-      console.error("JSON parsing completely failed:", error);
-      throw error;
     }
+    
+    // Case 2: Check for any markdown code blocks
+    const markdownMatch = text.match(/```\s*([\s\S]*?)```/);
+    if (markdownMatch) {
+      try {
+        console.log("Found generic markdown code block");
+        const jsonStr = markdownMatch[1].trim();
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        console.log("Failed to parse JSON from generic markdown block:", e.message);
+      }
+    }
+    
+    // Case 3: Try direct parsing (the response might be just JSON)
+    try {
+      console.log("Attempting direct JSON parsing");
+      return JSON.parse(text);
+    } catch (e) {
+      console.log("Direct JSON parsing failed:", e.message);
+    }
+    
+    // Case 4: Find content between first { and last }
+    const jsonObjectMatch = text.match(/(\{[\s\S]*\})/);
+    if (jsonObjectMatch) {
+      try {
+        console.log("Extracted JSON object using regex");
+        return JSON.parse(jsonObjectMatch[1]);
+      } catch (e) {
+        console.log("Failed to parse extracted JSON object:", e.message);
+      }
+    }
+    
+    // Case 5: Try to clean up the JSON string before parsing
+    try {
+      console.log("Attempting to clean and parse JSON");
+      let cleanedText = text
+        .replace(/^[^{]*/, '') // Remove anything before the first {
+        .replace(/[^}]*$/, '') // Remove anything after the last }
+        .replace(/\\n/g, ' ')  // Replace newlines with spaces
+        .replace(/\\"/g, '"')  // Fix escaped quotes
+        .replace(/'/g, '"')    // Replace single quotes with double quotes
+        .replace(/,\s*}/g, '}') // Fix trailing commas in objects
+        .replace(/,\s*]/g, ']'); // Fix trailing commas in arrays
+      
+      return JSON.parse(cleanedText);
+    } catch (e) {
+      console.log("Failed to parse cleaned JSON:", e.message);
+    }
+    
+    // If nothing worked, throw an error
+    throw new Error("Could not extract valid JSON from the response");
+  }
+
+  // Use the function to extract JSON
+  try {
+    const jsonData = extractJsonFromText(text);
+    console.log("Successfully extracted JSON");
+    
+    // Add metadata and return
+    return {
+      ...jsonData,
+      ticker,
+      year,
+      quarter,
+      date: transcriptData.date
+    };
   } catch (error) {
-    console.error("Gemini API error:", error);
+    console.error("All JSON extraction methods failed:", error.message);
     throw error;
   }
 }
